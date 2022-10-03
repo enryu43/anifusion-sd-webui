@@ -24,7 +24,7 @@ import logging
 
 
 # some of those options should not be changed at all because they would break the model, so I removed them from options.
-opt_C = 4
+#opt_C = 4
 opt_f = 8
 
 
@@ -465,11 +465,11 @@ class StableDiffusionProcessingTxt2Img(StableDiffusionProcessing):
         self.sampler = samplers[self.sampler_index].constructor(self.sd_model)
 
         if not self.enable_hr:
-            x = create_random_tensors([opt_C, self.height // opt_f, self.width // opt_f], seeds=seeds, subseeds=subseeds, subseed_strength=self.subseed_strength, seed_resize_from_h=self.seed_resize_from_h, seed_resize_from_w=self.seed_resize_from_w, p=self)
+            x = create_random_tensors([self.sd_model.channels, self.height // opt_f, self.width // opt_f], seeds=seeds, subseeds=subseeds, subseed_strength=self.subseed_strength, seed_resize_from_h=self.seed_resize_from_h, seed_resize_from_w=self.seed_resize_from_w, p=self)
             samples = self.sampler.sample(self, x, conditioning, unconditional_conditioning)
             return samples
 
-        x = create_random_tensors([opt_C, self.firstphase_height // opt_f, self.firstphase_width // opt_f], seeds=seeds, subseeds=subseeds, subseed_strength=self.subseed_strength, seed_resize_from_h=self.seed_resize_from_h, seed_resize_from_w=self.seed_resize_from_w, p=self)
+        x = create_random_tensors([self.sd_model.channels, self.firstphase_height // opt_f, self.firstphase_width // opt_f], seeds=seeds, subseeds=subseeds, subseed_strength=self.subseed_strength, seed_resize_from_h=self.seed_resize_from_h, seed_resize_from_w=self.seed_resize_from_w, p=self)
         samples = self.sampler.sample(self, x, conditioning, unconditional_conditioning)
 
         truncate_x = (self.firstphase_width - self.firstphase_width_truncated) // opt_f
@@ -629,7 +629,7 @@ class StableDiffusionProcessingImg2Img(StableDiffusionProcessing):
             latmask = np.moveaxis(np.array(latmask, dtype=np.float32), 2, 0) / 255
             latmask = latmask[0]
             latmask = np.around(latmask)
-            latmask = np.tile(latmask[None], (4, 1, 1))
+            latmask = np.tile(latmask[None], (self.sd_model.channels, 1, 1))
 
             self.mask = torch.asarray(1.0 - latmask).to(shared.device).type(self.sd_model.dtype)
             self.nmask = torch.asarray(latmask).to(shared.device).type(self.sd_model.dtype)
@@ -641,7 +641,7 @@ class StableDiffusionProcessingImg2Img(StableDiffusionProcessing):
                 self.init_latent = self.init_latent * self.mask
 
     def sample(self, conditioning, unconditional_conditioning, seeds, subseeds, subseed_strength):
-        x = create_random_tensors([opt_C, self.height // opt_f, self.width // opt_f], seeds=seeds, subseeds=subseeds, subseed_strength=self.subseed_strength, seed_resize_from_h=self.seed_resize_from_h, seed_resize_from_w=self.seed_resize_from_w, p=self)
+        x = create_random_tensors([self.sd_model.channels, self.height // opt_f, self.width // opt_f], seeds=seeds, subseeds=subseeds, subseed_strength=self.subseed_strength, seed_resize_from_h=self.seed_resize_from_h, seed_resize_from_w=self.seed_resize_from_w, p=self)
 
         samples = self.sampler.sample_img2img(self, self.init_latent, x, conditioning, unconditional_conditioning)
 

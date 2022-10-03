@@ -241,10 +241,10 @@ class StableDiffusionModelHijack:
         print(f"Loaded a total of {len(self.word_embeddings)} textual inversion embeddings.")
 
     def hijack(self, m):
-        model_embeddings = m.cond_stage_model.transformer.text_model.embeddings
-
-        model_embeddings.token_embedding = EmbeddingsWithFixes(model_embeddings.token_embedding, self)
-        m.cond_stage_model = FrozenCLIPEmbedderWithCustomWords(m.cond_stage_model, self)
+        if hasattr(m.cond_stage_model.transformer, 'text_model'):
+          model_embeddings = m.cond_stage_model.transformer.text_model.embeddings
+          model_embeddings.token_embedding = EmbeddingsWithFixes(model_embeddings.token_embedding, self)
+          m.cond_stage_model = FrozenCLIPEmbedderWithCustomWords(m.cond_stage_model, self)
 
         self.clip = m.cond_stage_model
 
