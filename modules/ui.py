@@ -1246,7 +1246,7 @@ def create_ui(wrap_gradio_gpu_call):
     if not cmd_opts.no_progressbar_hiding:
         css += css_hide_progressbar
 
-    with gr.Blocks(css=css, analytics_enabled=False, title="Hent Diffusion") as demo:
+    with gr.Blocks(css=css, analytics_enabled=False, title="Anifusion") as demo:
         
         settings_interface.gradio_ref = demo
         
