@@ -58,8 +58,14 @@ class EmbeddingDatabase:
 
         self.word_embeddings[embedding.name] = embedding
 
-        ids = model.cond_stage_model.tokenizer([embedding.name], add_special_tokens=False)['input_ids'][0]
+        ids = model.cond_stage_model.tokenizer([embedding.name], add_special_tokens=False, augment=False)
+        if isinstance(ids, dict):
+            ids = ids['input_ids']
 
+        ids = ids[0]
+
+        if isinstance(ids, torch.Tensor):
+            ids = list(ids.numpy())
         first_id = ids[0]
         if first_id not in self.ids_lookup:
             self.ids_lookup[first_id] = []
@@ -120,6 +126,7 @@ class EmbeddingDatabase:
                 continue
 
         print(f"Loaded a total of {len(self.word_embeddings)} textual inversion embeddings.")
+        print('State:', {k: [e[0] for e in v] for k, v in self.ids_lookup.items()})
 
     def find_embedding_at_position(self, tokens, offset):
         token = tokens[offset]
@@ -135,12 +142,22 @@ class EmbeddingDatabase:
         return None, None
 
 
-def create_embedding(name, num_vectors_per_token, init_text='*'):
+def create_embedding(name, num_vectors_per_token, init_text='*'):    
     cond_model = shared.sd_model.cond_stage_model
-    embedding_layer = cond_model.wrapped.transformer.text_model.embeddings
 
-    ids = cond_model.tokenizer(init_text, max_length=num_vectors_per_token, return_tensors="pt", add_special_tokens=False)["input_ids"]
-    embedded = embedding_layer.token_embedding.wrapped(ids.to(devices.device)).squeeze(0)
+    ids = cond_model.tokenizer(init_text, max_length=num_vectors_per_token, return_tensors="pt", add_special_tokens=False)
+    if isinstance(ids, dict):
+        ids = ids['input_ids']
+    if not isinstance(ids, torch.Tensor):
+        ids = torch.tensor(ids)
+
+    if hasattr(cond_model, 'wrapped') and hasattr(cond_model.wrapped.transformer, 'text_model'):
+      embedding_layer = cond_model.wrapped.transformer.text_model.embeddings
+      embedded = embedding_layer.token_embedding.wrapped(ids.to(devices.device)).squeeze(0)
+    else:
+      embedding_layer = cond_model.wrapped.transformer.token_emb
+      embedded = embedding_layer(ids.to(devices.device)).squeeze(0)
+
     vec = torch.zeros((num_vectors_per_token, embedded.shape[1]), device=devices.device)
 
     for i in range(num_vectors_per_token):
@@ -211,7 +228,7 @@ def train_embedding(embedding_name, learn_rate, data_root, log_directory, steps,
             break
 
         with torch.autocast("cuda"):
-            c = cond_model([text])
+            c = cond_model([text], augment=False)
 
             x = x.to(devices.device)
             loss = shared.sd_model(x.unsqueeze(0), c)[0]

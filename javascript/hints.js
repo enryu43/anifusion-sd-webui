@@ -1,6 +1,9 @@
 // mouseover tooltips for various UI elements
 
 titles = {
+    "NSFW": "Whether to allow NSFW images",
+    "Score Percentile": "Percentile of the image upvote count",
+    "Unbiased Score Percentile": "Percentile of the image upvote count, unbiased per topic",
     "Sampling steps": "How many times to improve the generated image iteratively; higher values take longer; very low values can produce bad results",
     "Sampling method": "Which algorithm to use to produce the image",
 	"GFPGAN": "Restore low quality faces using GFPGAN neural network",

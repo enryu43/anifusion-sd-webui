@@ -402,7 +402,7 @@ def create_toprow(is_img2img):
             with gr.Row():
                 with gr.Column(scale=80):
                     with gr.Row():
-                        prompt = gr.Textbox(label="Prompt", elem_id=f"{id_part}_prompt", show_label=False, placeholder="Prompt", lines=2)
+                        prompt = gr.Textbox(label="Prompt", elem_id=f"{id_part}_prompt", show_label=False, placeholder="Prompt", lines=2, value="1girl, solo")
 
                 with gr.Column(scale=1, elem_id="roll_col"):
                     roll = gr.Button(value=art_symbol, elem_id="roll", visible=len(shared.artist_db.artists) > 0)
@@ -482,7 +482,13 @@ def create_ui(wrap_gradio_gpu_call):
 
         with gr.Row().style(equal_height=False):
             with gr.Column(variant='panel'):
-                steps = gr.Slider(minimum=1, maximum=150, step=1, label="Sampling Steps", value=20)
+                nsfw = gr.Dropdown(label="NSFW?", elem_id=f"nsfw_rating", choices=["Safe", "Questionable", "Explicit"], value="Safe")
+                score_perc = gr.Dropdown(label="Score Percentile", elem_id=f"score_perc", choices=["100", "90", "80", "60", "40", "20", "10", "None"], value="100")
+                adjusted_score_perc = gr.Dropdown(label="Unbiased Score Percentile", elem_id=f"adjusted_score_perc", choices=["100", "90", "80", "60", "40", "20", "10", "None"], value="100")
+                augmentation = gr.Checkbox(label='Prompt augmentation', value=True)
+                max_augmentation = gr.Slider(label='Max prompt length after augmentation', minimum=10, maximum=50, step=1, value=50)
+
+                steps = gr.Slider(minimum=1, maximum=150, step=1, label="Sampling Steps", value=80)
                 sampler_index = gr.Radio(label='Sampling method', elem_id="txt2img_sampling", choices=[x.name for x in samplers], value=samplers[0].name, type="index")
 
                 with gr.Group():
@@ -502,7 +508,7 @@ def create_ui(wrap_gradio_gpu_call):
                     batch_count = gr.Slider(minimum=1, maximum=cmd_opts.max_batch_count, step=1, label='Batch count', value=1)
                     batch_size = gr.Slider(minimum=1, maximum=8, step=1, label='Batch size', value=1)
 
-                cfg_scale = gr.Slider(minimum=1.0, maximum=30.0, step=0.5, label='CFG Scale', value=7.0)
+                cfg_scale = gr.Slider(minimum=1.0, maximum=30.0, step=0.5, label='CFG Scale', value=8.0)
 
                 seed, reuse_seed, subseed, reuse_subseed, subseed_strength, seed_resize_from_h, seed_resize_from_w, seed_checkbox = create_seed_inputs()
 
@@ -553,6 +559,11 @@ def create_ui(wrap_gradio_gpu_call):
                     enable_hr,
                     scale_latent,
                     denoising_strength,
+                    nsfw,
+                    score_perc,
+                    adjusted_score_perc,
+                    augmentation,
+                    max_augmentation,
                 ] + custom_inputs,
                 outputs=[
                     txt2img_gallery,
@@ -600,6 +611,11 @@ def create_ui(wrap_gradio_gpu_call):
             txt2img_paste_fields = [
                 (txt2img_prompt, "Prompt"),
                 (txt2img_negative_prompt, "Negative prompt"),
+                (nsfw, "NSFW"),
+                (score_perc, "Score percentile"),
+                (adjusted_score_perc, "Unbiased score percentile"),
+                (augmentation, 'Augmentation'),
+                (max_augmentation, 'Max augmentation'),
                 (steps, "Steps"),
                 (sampler_index, "Sampler"),
                 (restore_faces, "Face restoration"),
@@ -1230,7 +1246,7 @@ def create_ui(wrap_gradio_gpu_call):
     if not cmd_opts.no_progressbar_hiding:
         css += css_hide_progressbar
 
-    with gr.Blocks(css=css, analytics_enabled=False, title="Stable Diffusion") as demo:
+    with gr.Blocks(css=css, analytics_enabled=False, title="Hent Diffusion") as demo:
         
         settings_interface.gradio_ref = demo
         
@@ -1407,10 +1423,18 @@ def create_ui(wrap_gradio_gpu_call):
 with open(os.path.join(script_path, "script.js"), "r", encoding="utf8") as jsfile:
     javascript = f'<script>{jsfile.read()}</script>'
 
+javascript += """
+  <link rel="stylesheet" href="//code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css">
+  <link rel="stylesheet" href="/resources/demos/style.css">
+  <script src="https://code.jquery.com/jquery-3.6.0.js"></script>
+  <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.js"></script>
+"""
+
 jsdir = os.path.join(script_path, "javascript")
 for filename in sorted(os.listdir(jsdir)):
     with open(os.path.join(jsdir, filename), "r", encoding="utf8") as jsfile:
         javascript += f"\n<script>{jsfile.read()}</script>"
+
 
 
 if 'gradio_routes_templates_response' not in globals():

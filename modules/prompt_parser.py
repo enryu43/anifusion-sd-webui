@@ -86,14 +86,14 @@ ScheduledPromptConditioning = namedtuple("ScheduledPromptConditioning", ["end_at
 ScheduledPromptBatch = namedtuple("ScheduledPromptBatch", ["shape", "schedules"])
 
 
-def get_learned_conditioning(prompts, steps):
+def get_learned_conditioning(prompts, steps, seeds=None, augment=True, max_augment=50):
 
     res = []
 
     prompt_schedules = get_learned_conditioning_prompt_schedules(prompts, steps)
     cache = {}
 
-    for prompt, prompt_schedule in zip(prompts, prompt_schedules):
+    for i, (prompt, prompt_schedule) in enumerate(zip(prompts, prompt_schedules)):
 
         cached = cache.get(prompt, None)
         if cached is not None:
@@ -101,7 +101,10 @@ def get_learned_conditioning(prompts, steps):
             continue
 
         texts = [x[1] for x in prompt_schedule]
-        conds = shared.sd_model.get_learned_conditioning(texts)
+        kwargs = {'augment': augment, 'max_augment': max_augment}
+        if seeds is not None and i < len(seeds):
+            kwargs['seed'] = seeds[i]
+        conds = shared.sd_model.get_learned_conditioning(texts, **kwargs)
 
         cond_schedule = []
         for i, (end_at_step, text) in enumerate(prompt_schedule):

@@ -49,7 +49,7 @@ def apply_color_correction(correction, image):
 
 
 class StableDiffusionProcessing:
-    def __init__(self, sd_model=None, outpath_samples=None, outpath_grids=None, prompt="", styles=None, seed=-1, subseed=-1, subseed_strength=0, seed_resize_from_h=-1, seed_resize_from_w=-1, seed_enable_extras=True, sampler_index=0, batch_size=1, n_iter=1, steps=50, cfg_scale=7.0, width=512, height=512, restore_faces=False, tiling=False, do_not_save_samples=False, do_not_save_grid=False, extra_generation_params=None, overlay_images=None, negative_prompt=None, eta=None):
+    def __init__(self, sd_model=None, outpath_samples=None, outpath_grids=None, prompt="", styles=None, seed=-1, subseed=-1, subseed_strength=0, seed_resize_from_h=-1, seed_resize_from_w=-1, seed_enable_extras=True, sampler_index=0, batch_size=1, n_iter=1, steps=50, cfg_scale=7.0, width=512, height=512, restore_faces=False, tiling=False, do_not_save_samples=False, do_not_save_grid=False, extra_generation_params=None, overlay_images=None, negative_prompt=None, eta=None, nsfw=None, score_perc=None, adjusted_score_perc=None, augmentation=True, max_augmentation=50):
         self.sd_model = sd_model
         self.outpath_samples: str = outpath_samples
         self.outpath_grids: str = outpath_grids
@@ -85,7 +85,14 @@ class StableDiffusionProcessing:
         self.s_tmin = opts.s_tmin
         self.s_tmax = float('inf')  # not representable as a standard ui option
         self.s_noise = opts.s_noise
-        
+
+        self.nsfw = nsfw
+        self.score_perc = score_perc
+        self.adjusted_score_perc = adjusted_score_perc
+        self.augmentation = augmentation
+        self.max_augmentation = max_augmentation
+        print('Aug settings:', self.augmentation, self.max_augmentation)
+
         if not seed_enable_extras:
             self.subseed = -1
             self.subseed_strength = 0
@@ -312,6 +319,17 @@ def process_images(p: StableDiffusionProcessing) -> Processed:
     else:
         all_prompts = p.batch_size * p.n_iter * [p.prompt]
 
+    if p.nsfw is not None:
+      nsfw = {'Explicit': 'rating_e', 'Questionable': 'rating_q', 'Safe': 'rating_s'}[p.nsfw]
+      all_prompts = [s + ', ' + nsfw for s in all_prompts]
+    if (p.score_perc is not None) and (p.score_perc != 'None'):
+      score_perc = 'score_perc_' + str(p.score_perc)
+      all_prompts = [s + ', ' + score_perc for s in all_prompts]
+    if (p.adjusted_score_perc is not None) and (p.adjusted_score_perc != 'None'):
+      adj_score_perc = 'adjusted_score_perc_' + str(p.adjusted_score_perc)
+      all_prompts = [s + ', ' + adj_score_perc for s in all_prompts]
+
+
     if type(p.seed) == list:
         all_seeds = p.seed
     else:
@@ -351,8 +369,11 @@ def process_images(p: StableDiffusionProcessing) -> Processed:
 
             #uc = p.sd_model.get_learned_conditioning(len(prompts) * [p.negative_prompt])
             #c = p.sd_model.get_learned_conditioning(prompts)
-            uc = prompt_parser.get_learned_conditioning(len(prompts) * [p.negative_prompt], p.steps)
-            c = prompt_parser.get_learned_conditioning(prompts, p.steps)
+            negative_prompt = p.negative_prompt
+            if negative_prompt:
+              negative_prompt += ', __NO_AUGMENT__'
+            uc = prompt_parser.get_learned_conditioning(len(prompts) * [negative_prompt], p.steps, seeds=seeds, augment=False)
+            c = prompt_parser.get_learned_conditioning(prompts, p.steps, seeds=seeds, augment=p.augmentation, max_augment=p.max_augmentation)
 
             if len(model_hijack.comments) > 0:
                 for comment in model_hijack.comments:
